@@ -59,11 +59,11 @@ function formatDate(title) {
     const dateMatch = title.match(/(\d{1,2})\s*([a-zåäö]+)\s*([-–]\s*(\d{1,2})\s*([a-zåäö]+))?/i);
     if (!dateMatch) return '';
     
-    const startDay = dateMatch[1];
+    const startDay = parseInt(dateMatch[1], 10).toString();
     const startMonth = monthMap[dateMatch[2].toLowerCase()];
     
     if (dateMatch[4] && dateMatch[5]) {
-        const endDay = dateMatch[4];
+        const endDay = parseInt(dateMatch[4], 10).toString();
         const endMonth = monthMap[dateMatch[5].toLowerCase()];
         return `${startDay}/${startMonth}–${endDay}/${endMonth}`;
     }
