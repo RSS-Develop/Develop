@@ -10,36 +10,28 @@
             color: white;
             font-family: Arial, sans-serif;
             margin: 0;
-            padding: 0 10px;
+            padding: 0;
             width: 576px;
             height: 64px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
             overflow: hidden;
+            position: relative;
         }
-        #eventContainer {
-            width: 100%;
-            height: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .event-text {
-            font-size: var(--font-size, 36px); /* Använder beräknad storlek */
+        #eventText {
+            font-size: 36px;
             white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
             max-width: 100%;
+            margin: 0;
+            padding: 0;
             line-height: 1;
-            text-align: center;
         }
     </style>
 </head>
 <body>
-    <div id="eventContainer">
-        <div id="eventText" class="event-text">Välkommen till Eskilstuna</div>
-    </div>
+    <div id="eventText">Välkommen till Eskilstuna</div>
 
 <script>
 const RSS_URL = 'https://api.allorigins.win/get?url=' + encodeURIComponent('https://visiteskilstuna.se/rest-api/rssService/getRssFeed?portletId=12.5b899160171ac5273c72ad9f&pageId=2.369be3c31580a19562d1977e');
@@ -52,46 +44,21 @@ const monthMap = {
     "sep": "09", "okt": "10", "nov": "11", "dec": "12"
 };
 
-// Optimal textstorlek baserad på faktisk textlängd
-function calculateOptimalFontSize() {
-    const testElement = document.createElement('div');
-    testElement.className = 'event-text';
-    testElement.style.position = 'absolute';
-    testElement.style.visibility = 'hidden';
-    testElement.textContent = 'W'.repeat(MAX_LENGTH);
-    
-    document.body.appendChild(testElement);
-    
-    let fontSize = 64;
-    while (testElement.scrollWidth > 576 && fontSize > 12) {
-        fontSize--;
-        testElement.style.fontSize = `${fontSize}px`;
-    }
-    
-    document.body.removeChild(testElement);
-    return fontSize;
-}
-
-// Tillämpa font-storlek
-document.documentElement.style.setProperty('--font-size', `${calculateOptimalFontSize()}px`);
-
-// Förbättrad datumhantering
 function formatDate(title) {
     const dateMatch = title.match(/(\d{1,2})\s*([a-zåäö]+)\s*([-–]\s*(\d{1,2})\s*([a-zåäö]+))?/i);
     if (!dateMatch) return '';
     
     const startDay = dateMatch[1].padStart(2, '0');
-    const startMonth = monthMap[dateMatch[2].toLowerCase()] || '00';
+    const startMonth = monthMap[dateMatch[2].toLowerCase()];
     
     if (dateMatch[4] && dateMatch[5]) {
         const endDay = dateMatch[4].padStart(2, '0');
-        const endMonth = monthMap[dateMatch[5].toLowerCase()] || '00';
+        const endMonth = monthMap[dateMatch[5].toLowerCase()];
         return `${startDay}/${startMonth}–${endDay}/${endMonth}`;
     }
     return `${startDay}/${startMonth}`;
 }
 
-// Stabil datahämtning
 async function fetchData() {
     try {
         const response = await fetch(RSS_URL);
@@ -102,20 +69,19 @@ async function fetchData() {
         const xmlDoc = parser.parseFromString(data.contents, "text/xml");
         const items = xmlDoc.querySelectorAll('item');
         
-        const newEvents = [];
+        events = [];
         items.forEach(item => {
-            const title = item.querySelector('title')?.textContent?.trim() || '';
+            let title = item.querySelector('title')?.textContent?.trim() || '';
             const date = formatDate(title);
-            const cleanTitle = title.replace(/^(\d{1,2}\s*[a-zåäö]+\s*([-–]\s*\d{1,2}\s*[a-zåäö]+)?)/i, '').trim();
+            title = title.replace(/^(\d{1,2}\s*[a-zåäö]+\s*([-–]\s*\d{1,2}\s*[a-zåäö]+)?)/i, '').trim();
             
-            if (date && cleanTitle) {
-                const displayText = `${date} ${cleanTitle}`.substring(0, MAX_LENGTH).trim();
-                newEvents.push(displayText);
+            if (date) {
+                const fullText = `${date} ${title}`.substring(0, MAX_LENGTH);
+                events.push(fullText);
             }
         });
-
-        if (newEvents.length > 0) {
-            events = newEvents;
+        
+        if (events.length > 0) {
             currentEventIndex = 0;
             updateDisplay();
         }
@@ -139,7 +105,7 @@ function showWelcomeMessage() {
     document.getElementById('eventText').textContent = 'Välkommen till Eskilstuna';
 }
 
-// Initialisering
+// Initial uppdatering och regelbunden uppdatering
 fetchData();
 setInterval(fetchData, 300000); // Uppdatera var 5:e minut
 setInterval(updateDisplay, 10000); // Byt text var 10:e sekund
