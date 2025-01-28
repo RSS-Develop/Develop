@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>RSS Läsare (576x64)</title>
+  <title>RSS Läsare (Vänsterställd, centrerad vertikalt)</title>
   <style>
     /* 
-      BODY fyller hela webbläsaren:
-      - Svart bakgrund
-      - Flex-centering i både X- och Y-led
-      - Höjd: 100vh (hela fönstrets höjd)
+      BODY fyller hela webbläsarfönstret i höjdled (100vh).
+      Bakgrunden är svart.
+      Texten placeras (med flex) längs vänsterkanten (justify-content: flex-start),
+      men är centrerad vertikalt (align-items: center).
     */
     body {
       background-color: black;
@@ -18,45 +18,40 @@
       margin: 0;
       padding: 0;
 
-      display: flex; 
-      justify-content: center;  /* Centra horisontellt */
-      align-items: center;      /* Centra vertikalt */
-      height: 100vh;            /* 100% av synliga höjden i webbläsaren */
+      display: flex;
+      justify-content: flex-start; /* Vänsterställd horisontellt */
+      align-items: center;         /* Vertikalt centrerad */
+      height: 100vh;               /* Fyll hela fönstrets höjd */
     }
 
     /*
-      #rssFeed är en ”remsa” på 576×64 px, placerad centralt i skärmen 
-      (tack vare body-stylingen).
-      Inuti den är texten vänsterställd.
+      #rssFeed är en flexibel behållare för texten,
+      ligger mot vänsterkanten tack vare body.
+      padding-left: 10px ger lite luft i vänsterkanten.
     */
     #rssFeed {
-      width: 576px;
-      height: 64px;
+      max-width: 100%;   /* Så den inte överskrider fönstrets bredd */
+      padding-left: 10px;
       box-sizing: border-box;
-      display: flex;
-      align-items: center;         /* Vertikalt centrerad text i 64 px */
-      justify-content: flex-start; /* Vänsterjustera texten */
-      padding-left: 10px;         /* Lite luft i vänsterkant */
-      overflow: hidden;           /* Dölj ev. rullande text */
+      line-height: 1.2;
+      overflow: hidden;  /* Dölj ev. extra text om rullning sker */
     }
 
-    /* Event-titeln */
+    /* Själva textytan */
     #eventTitle {
       font-size: 30px;
       margin: 0;
-      line-height: 64px;    /* Samma höjd som remsan */
       white-space: nowrap;
       overflow: hidden;
-      position: relative;   /* För marquee-positionering */
+      position: relative; 
       text-align: left;
+      line-height: 1.2;  /* Du kan byta till 64px om du vill */
     }
 
-    /* Marquee (scroll-text) */
+    /* Rullande text (marquee) när för långt (> 40 tecken) */
     .scroll-text {
       position: absolute;
-      line-height: 64px;
       white-space: nowrap;
-      /* Börja utanför rutan till höger */
       padding-left: 100%;
       animation: marquee 15s linear infinite;
     }
@@ -68,6 +63,7 @@
   </style>
 </head>
 <body>
+
   <div id="rssFeed">
     <div id="eventTitle">VÄLKOMMEN TILL ESKILSTUNA</div>
   </div>
@@ -83,7 +79,7 @@
   let currentEventIndex = 0;
   let eventInterval;
 
-  // Svenska månadsnamn (korta & långa, inkl å, ä, ö).
+  // Svenska månader (inkl. åäö, kort+långa)
   const swedishMonths = {
     "jan": 1, "januari": 1,
     "feb": 2, "februari": 2,
@@ -100,12 +96,10 @@
   };
 
   /**
-   * Exempel: "5 feb - 8 feb, Folk och Kultur 2025"
-   * => formatDateRange() => "5/2 - 8/2"
-   * => Rensar sedan bort "5 feb - 8 feb," från titeln.
+   * formatDateRange:
+   * T.ex. "5 feb - 8 feb" => "5/2 - 8/2"
    */
   function formatDateRange(title) {
-    // Fångar "xx mån" eller "xx mån - xx mån"
     const datePattern = /^(\d{1,2})\s*([a-zA-ZåäöÅÄÖ]+)(?:\s*-\s*(\d{1,2})\s*([a-zA-ZåäöÅÄÖ]+))?/i;
     const match = title.match(datePattern);
     if (match) {
@@ -129,24 +123,18 @@
   }
 
   /**
-   * Tar bort datum + ev. skiljetecken. T.ex.
-   * "5 feb - 8 feb, Folk och Kultur 2025" -> "Folk och Kultur 2025"
-   * "... -> " 
+   * removeDateFromTitle:
+   * Tar bort datum + ev. skiljetecken direkt efter.  
+   * T.ex. "5 feb - 8 feb, Folk och Kultur" -> "Folk och Kultur"
    */
   function removeDateFromTitle(title) {
-    /* 
-       Här matchar vi:
-         1) (\d{1,2}\s*[a-zA-ZåäöÅÄÖ]+(?:\s*-\s*\d{1,2}\s*[a-zA-ZåäöÅÄÖ]+)?) 
-            => t.ex. "5 feb - 8 feb" eller "5 feb"
-         2) [\s,:\-–]+ => mellanslag eller kommatering efter datumet
-    */
     return title.replace(
-      /^(\d{1,2}\s*[a-zA-ZåäöÅÄÖ]+(?:\s*-\s*\d{1,2}\s*[a-zA-ZåäöÅÄÖ]+)?)[\s,:\-–]+/i,
+      /^(\d{1,2}\s*[a-zA-ZåäöÅÄÖ]+(?:\s*-\s*\d{1,2}\s*[a-zA-ZåäöÅÄÖ]+)?)[\s,:\-–]+/i, 
       ''
     ).trim();
   }
 
-  // Avkoda HTML (ex &amp; -> &)
+  // Avkodar HTML-entities, ex &amp; -> &
   function decodeHtmlEntities(text) {
     const textarea = document.createElement('textarea');
     textarea.innerHTML = text;
@@ -165,26 +153,23 @@
       events = [];
 
       for (let i = 0; i < items.length; i++) {
-        let title = items[i].title || '';
-        title = title.trim();
+        let title = (items[i].title || '').trim();
 
-        // Hämta formaterat datumintervall
+        // Extrahera datum
         const formattedDate = formatDateRange(title);
 
-        // Ta bort datum + ev. kommatecken/bindestreck direkt efter
+        // Ta bort datumet ur titeln (inkl. ev. kommatecken, etc.)
         title = removeDateFromTitle(title);
 
-        // Avkoda eventuella HTML-entities
+        // Avkoda HTML
         title = decodeHtmlEntities(title);
 
-        // Slutlig text -> "datum eventTitel" 
-        // (om formattedDate finns)
+        // Sätt ihop "datum + titel"
         const displayTitle = (formattedDate ? formattedDate + ' ' : '') + title;
 
         events.push({ title: displayTitle.trim() });
       }
 
-      // Om ingen interval redan kör, starta
       if (!eventInterval) {
         showNextEvent();
         // Byt event var 10:e sekund
@@ -196,14 +181,14 @@
     }
   }
 
-  // Visar nästa event
+  // Visa nästa event
   function showNextEvent() {
     const eventTitleElem = document.getElementById("eventTitle");
 
     if (events.length > 0) {
       const currentText = events[currentEventIndex].title;
-      
-      // Om texten är längre än 40 tecken -> marquee
+
+      // Om texten är för lång => marquee
       if (currentText.length > 40) {
         eventTitleElem.innerHTML = `<div class="scroll-text">${currentText}</div>`;
       } else {
@@ -216,14 +201,14 @@
     }
   }
 
-  // Återställ till välkomsttext
+  // Återställ välkomst
   function resetToWelcomeMessage() {
     document.getElementById("eventTitle").textContent = 'VÄLKOMMEN TILL ESKILSTUNA';
   }
 
-  // Hämta RSS direkt
+  // Init
   fetchRSS();
-  // Sedan var 5:e minut
+  // Upprepa var 5:e minut
   setInterval(fetchRSS, 300000);
 </script>
 </body>
