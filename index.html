@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=576, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>RSS Läsare</title> <!-- Originaltitel återställd -->
+    <title>Eskilstuna Event</title>
     <style>
         body {
             background-color: black;
             color: white;
-            font-family: Arial, sans-serif;
+            font-family: 'Arial Narrow', Arial, sans-serif;
             margin: 0;
-            padding: 0;
+            padding: 0 10px;
             width: 576px;
             height: 64px;
             display: flex;
@@ -19,117 +19,156 @@
         }
         #rssFeed {
             width: 100%;
-            padding: 0 10px;
-            box-sizing: border-box;
+            height: 100%;
+            position: relative;
         }
         .event-title {
-            font-size: 64px;
+            position: absolute;
             white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            max-width: 100%;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
             margin: 0;
-            line-height: 1;
-            transform-origin: left center;
+            font-size: 32px;
+            max-width: 100%;
+            opacity: 0;
+            transition: opacity 0.5s ease, transform 0.5s ease;
+        }
+        .event-title.active {
+            opacity: 1;
+            transform: translateY(-50%) translateX(0);
+        }
+        .event-title.next {
+            transform: translateY(-50%) translateX(100%);
         }
     </style>
 </head>
 <body>
-
-<div id="rssFeed">
-    <div id="eventTitle" class="event-title">Välkommen till Eskilstuna</div>
-</div>
+    <div id="rssFeed"></div>
 
 <script>
-    const rssUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent('https://visiteskilstuna.se/rest-api/rssService/getRssFeed?portletId=12.5b899160171ac5273c72ad9f&pageId=2.369be3c31580a19562d1977e');
-    let events = [];
-    let currentEventIndex = 0;
-    const monthMap = { "jan": 1, "feb": 2, "mar": 3, "apr": 4, "maj": 5, "jun": 6, "jul": 7, "aug": 8, "sep": 9, "okt": 10, "nov": 11, "dec": 12 };
+const RSS_URL = 'https://api.allorigins.win/get?url=' + encodeURIComponent('https://visiteskilstuna.se/rest-api/rssService/getRssFeed?portletId=12.5b899160171ac5273c72ad9f&pageId=2.369be3c31580a19562d1977e');
+const MAX_TEXT_WIDTH = 556; // 576px - 20px padding
 
-    function formatDateRange(title) {
-        const datePattern = /^(\d{1,2})\s(\w{3})(?:\s?-\s?(\d{1,2})\s?(\w{3}))?/i;
-        const match = title.match(datePattern);
-        if (match) {
-            const startDay = parseInt(match[1], 10);
-            const startMonth = monthMap[match[2].toLowerCase()];
-            if (match[3] && match[4]) {
-                const endDay = parseInt(match[3], 10);
-                const endMonth = monthMap[match[4].toLowerCase()];
-                return `${startDay}/${startMonth} - ${endDay}/${endMonth}`;
-            }
-            return `${startDay}/${startMonth}`;
-        }
-        return '';
+class RssDisplay {
+    constructor() {
+        this.events = [];
+        this.currentIndex = 0;
+        this.monthMap = {
+            "jan": "01", "feb": "02", "mar": "03", "apr": "04",
+            "maj": "05", "jun": "06", "jul": "07", "aug": "08",
+            "sep": "09", "okt": "10", "nov": "11", "dec": "12"
+        };
+        this.init();
     }
 
-    function adjustFontSize() {
-        const titleElement = document.getElementById("eventTitle");
-        const containerWidth = 576 - 20; // 576px - 10px padding
-        const currentText = titleElement.textContent;
-        
-        let fontSize = 64;
-        if (currentText.length > 31) {
-            const lengthOverflow = currentText.length - 31;
-            fontSize = Math.max(24, 64 - (lengthOverflow * 3));
-        }
-        
-        titleElement.style.fontSize = `${fontSize}px`;
-        if (titleElement.scrollWidth > containerWidth) {
-            const scaleFactor = containerWidth / titleElement.scrollWidth;
-            fontSize = Math.floor(fontSize * scaleFactor);
-            titleElement.style.fontSize = `${fontSize}px`;
-        }
+    init() {
+        this.createTitleElements();
+        this.fetchData();
+        setInterval(() => this.fetchData(), 60000);
+        setInterval(() => this.showNextEvent(), 10000);
     }
 
-    async function fetchRSS() {
+    createTitleElements() {
+        const container = document.getElementById('rssFeed');
+        this.currentTitle = this.createTitleElement();
+        this.nextTitle = this.createTitleElement();
+        container.append(this.currentTitle, this.nextTitle);
+    }
+
+    createTitleElement() {
+        const el = document.createElement('div');
+        el.className = 'event-title';
+        return el;
+    }
+
+    async fetchData() {
         try {
-            const response = await fetch(rssUrl);
-            if (!response.ok) throw new Error("Kunde inte hämta RSS-flödet");
+            const response = await fetch(RSS_URL);
+            if (!response.ok) throw new Error('Network error');
             
             const data = await response.json();
             const parser = new DOMParser();
             const xmlDoc = parser.parseFromString(data.contents, "text/xml");
-            const items = xmlDoc.getElementsByTagName("item");
-            events = [];
-
-            for (let i = 0; i < items.length; i++) {
-                let title = items[i].getElementsByTagName("title")[0]?.textContent || '';
-                title = title.slice(0, 35); // Hård begränsning
-                const formattedDate = formatDateRange(title);
-                title = title.replace(/^(\d{1,2}\s\w{3}(?:\s?-\s?\d{1,2}\s?\w{3})?)\s*/, '').trim();
-                events.push({ title: `${formattedDate} ${title}`.trim() });
-            }
-
-            if (!eventInterval) {
-                eventInterval = setInterval(showNextEvent, 10000);
-                showNextEvent();
-            }
+            this.processItems(xmlDoc.querySelectorAll('item'));
         } catch (error) {
-            console.error(error);
-            resetToWelcomeMessage();
+            console.error('Fetch error:', error);
+            this.showWelcomeMessage();
         }
     }
 
-    function showNextEvent() {
-        const eventTitle = document.getElementById("eventTitle");
-        if (events.length > 0) {
-            eventTitle.textContent = events[currentEventIndex].title;
-            adjustFontSize();
-            currentEventIndex = (currentEventIndex + 1) % events.length;
-        } else {
-            resetToWelcomeMessage();
+    processItems(items) {
+        this.events = [];
+        items.forEach(item => {
+            const title = item.querySelector('title')?.textContent?.trim() || '';
+            const [datePart, ...titleParts] = this.splitDateFromTitle(title);
+            
+            if (datePart) {
+                this.events.push({
+                    date: this.formatDate(datePart),
+                    title: titleParts.join(' ').substring(0, 40)
+                });
+            }
+        });
+        
+        if (this.events.length === 0) this.showWelcomeMessage();
+    }
+
+    splitDateFromTitle(title) {
+        const dateRegex = /^(\d{1,2}\s*[a-zåäö]{3}\s*([-–]\s*\d{1,2}\s*[a-zåäö]{3})?)/i;
+        const match = title.match(dateRegex);
+        return match ? [match[0], title.slice(match[0].length)] : ['', title];
+    }
+
+    formatDate(rawDate) {
+        const dateParts = rawDate.split(/[-–]/).map(part => {
+            const [day, month] = part.trim().split(/\s+/);
+            return `${day.padStart(2, '0')}/${this.monthMap[month.toLowerCase()]}`;
+        });
+        return dateParts.join('–');
+    }
+
+    showNextEvent() {
+        if (this.events.length === 0) return;
+
+        this.nextTitle.textContent = `${this.events[this.currentIndex].date} ${this.events[this.currentIndex].title}`;
+        this.adjustTextSize(this.nextTitle);
+        
+        this.nextTitle.classList.add('next');
+        setTimeout(() => {
+            this.currentTitle.classList.remove('active');
+            this.nextTitle.classList.remove('next');
+            this.nextTitle.classList.add('active');
+            
+            const temp = this.currentTitle;
+            this.currentTitle = this.nextTitle;
+            this.nextTitle = temp;
+            
+            this.currentIndex = (this.currentIndex + 1) % this.events.length;
+        }, 50);
+    }
+
+    adjustTextSize(element) {
+        let fontSize = 32;
+        element.style.fontSize = `${fontSize}px`;
+        
+        while (element.scrollWidth > MAX_TEXT_WIDTH && fontSize > 12) {
+            fontSize--;
+            element.style.fontSize = `${fontSize}px`;
         }
     }
 
-    function resetToWelcomeMessage() {
-        const eventTitle = document.getElementById("eventTitle");
-        eventTitle.textContent = 'Välkommen till Eskilstuna';
-        eventTitle.style.fontSize = '64px';
+    showWelcomeMessage() {
+        this.events = [{
+            date: '',
+            title: 'Välkommen till Eskilstuna'
+        }];
+        this.currentIndex = 0;
+        this.adjustTextSize(this.currentTitle);
     }
+}
 
-    fetchRSS();
-    setInterval(fetchRSS, 30000);
+new RssDisplay();
 </script>
-
 </body>
 </html>
