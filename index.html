@@ -3,87 +3,116 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Eskilstuna Evenemang - Lista</title>
+  <title>Eskilstuna Evenemang (Responsiv Lista)</title>
   <style>
-    body {
+    /* Nollställ kroppens margin/padding och låt den fylla hela skärmen */
+    html, body {
       margin: 0;
       padding: 0;
+      height: 100%;
+      width: 100%;
       background-color: black;
       color: white;
       font-family: Arial, sans-serif;
     }
 
-    /* En container för hela listan */
+    /* 
+      #eventList fyller skärmens bredd 
+      och anpassar höjden med flex (lodrät lista)
+    */
     #eventList {
       display: flex;
-      flex-direction: column; /* Lodrät lista */
-      gap: 10px;             /* Avstånd mellan varje event-item */
-      max-width: 800px;      /* Anpassa efter hur bred du vill att listan ska vara */
-      margin: 0 auto;        /* Centrera listan i webbläsarfönstret */
-      padding: 20px;
+      flex-direction: column;
+      width: 100%;         /* Fyll hela bredden */
+      padding: 20px;       /* Marginal inåt från kanterna */
+      box-sizing: border-box;
     }
 
-    /* Varje event presenteras i en "rad" */
+    /* Varje event i en egen "rad" (horisontell layout) */
     .event-item {
       display: flex;
-      flex-direction: row;   /* Bild till vänster, text till höger */
-      background-color: #333;
-      border-radius: 5px;
-      overflow: hidden;
-      align-items: center;
-      min-height: 80px; /* så vi har utrymme för bilden */
+      flex-direction: row; 
+      align-items: flex-start;
+      background-color: black;  /* Svart bakgrund */
+      border-bottom: 1px solid white; /* tunn vit linje mellan event */
+      padding-bottom: 10px;
+      margin-bottom: 10px;
+      min-height: 80px;
     }
 
-    /* Bilden */
+    /* Bilden till vänster */
     .event-image {
       width: 80px;
       height: 80px;
-      object-fit: cover;  /* Beskär bilden om den är för stor / annan ratio */
-      flex-shrink: 0;     /* Förhindra att bilden trycks ihop */
-      background-color: #555; /* fallback om ingen bild hittas */
+      object-fit: cover;  /* Beskär om bilden har annan ratio */
+      flex-shrink: 0;     /* Hindra att bilden trycks ihop */
+      margin-right: 10px; /* Lite luft mellan bild och text */
+      background-color: #555; /* fallback om ingen bild */
     }
 
-    /* Text-området bredvid bilden */
+    /* Håll textdel i en kolumn bredvid bilden */
     .event-info {
       display: flex;
       flex-direction: column;
-      padding: 8px 10px;
-      justify-content: center;
-      flex-grow: 1; /* Gör så textytan kan bre ut sig */
+      justify-content: flex-start;
+      flex-grow: 1; 
+    }
+
+    /* Datum+Titel på en rad */
+    .date-title-line {
+      display: flex;
+      flex-wrap: wrap;  /* Gör att titeln kan brytas om den är för lång */
+      align-items: baseline;
+      margin-bottom: 4px;
     }
 
     .event-date {
       font-weight: bold;
-      margin-bottom: 4px;
+      margin-right: 8px; 
+      font-size: 1.3rem; /* Anpassa storlek för stor skärm */
     }
 
     .event-title {
-      font-size: 1.1rem;
+      font-size: 1.3rem; 
       margin: 0;
       line-height: 1.4;
     }
 
     .event-location {
       color: #ccc;
-      font-size: 0.95rem;
+      font-size: 1rem;   /* Mindre text än titeln */
       margin-top: 4px;
     }
+
+    /* 
+      Exempel på media queries för att anpassa storleken
+      om skärmen är "stående" (portrait) eller väldigt smal.
+      Dessa är frivilliga - justera efter behov!
+    */
+    @media (max-width: 800px) {
+      .event-date, .event-title {
+        font-size: 1.1rem;
+      }
+      .event-location {
+        font-size: 0.9rem;
+      }
+    }
+
   </style>
 </head>
 <body>
 
-  <div id="eventList">
-    <!-- Här stoppar vi in event-rader dynamiskt via JavaScript -->
-  </div>
+  <!-- Lista där evenemangen kommer att injiceras -->
+  <div id="eventList"></div>
 
 <script>
-  // URL till rss2json (hämta ditt RSS-flöde i JSON-format)
+  // Din RSS-länk via rss2json
   const rssUrl = 'https://api.rss2json.com/v1/api.json?rss_url=' + 
     encodeURIComponent(
       'https://visiteskilstuna.se/rest-api/rssService/getRssFeed?portletId=12.5b899160171ac5273c72ad9f&pageId=2.369be3c31580a19562d1977e'
     );
 
-  // Svenska månader för datumformat
+  // Svenska månader
   const swedishMonths = {
     "jan": 1, "januari": 1,
     "feb": 2, "februari": 2,
@@ -99,13 +128,8 @@
     "dec": 12, "december": 12
   };
 
-  /**
-   * formatDateRange:
-   * "5 feb - 8 feb" => "5/2 - 8/2"
-   * "5 feb" => "5/2"
-   */
+  /* Plocka datum från titeln, t ex "05 feb - 08 feb, Folk och Kultur 2025" -> "5/2 - 8/2" */
   function formatDateRange(title) {
-    // Fångar "xx mån" eller "xx mån - xx mån"
     const datePattern = /^(\d{1,2})\s*([a-zA-ZåäöÅÄÖ]+)(?:\s*-\s*(\d{1,2})\s*([a-zA-ZåäöÅÄÖ]+))?/i;
     const match = title.match(datePattern);
     if (match) {
@@ -128,145 +152,118 @@
     return '';
   }
 
-  /**
-   * removeDateFromTitle:
-   * T.ex. "5 feb - 8 feb, Folk och Kultur" => "Folk och Kultur"
-   */
+  /* Ta bort datumdelen ur titeln */
   function removeDateFromTitle(title) {
     return title.replace(
-      /^(\d{1,2}\s*[a-zA-ZåäöÅÄÖ]+(?:\s*-\s*\d{1,2}\s*[a-zA-ZåäöÅÄÖ]+)?)[\s,:\-–]+/i, 
+      /^(\d{1,2}\s*[a-zA-ZåäöÅÄÖ]+(?:\s*-\s*\d{1,2}\s*[a-zA-ZåäöÅÄÖ]+)?)[\s,:\-–]+/i,
       ''
     ).trim();
   }
 
-  // Avkodar t.ex. "&amp;" till "&"
+  /* Avkoda ex. &amp; -> & */
   function decodeHtmlEntities(text) {
     const textarea = document.createElement('textarea');
     textarea.innerHTML = text;
     return textarea.value;
   }
 
-  /**
-   * Försök att plocka "Plats" ur <description>.
-   * Ex: <description>...Plats: Eskilstuna stadsmuseum<br>...
-   * Du kan behöva anpassa detta beroende på hur texten är uppbyggd!
-   */
-  function extractLocation(description) {
-    if (!description) return '';
-    // T.ex. letar efter "Plats: " + resten fram till <br> eller liknande
-    const match = description.match(/Plats:\s*(.*?)(<br|<\/p|$)/i);
-    if (match) {
-      return match[1].trim();
-    }
-    return '';
-  }
-
-  // Hämta data och bygg listan
   async function fetchAndDisplayEvents() {
     try {
       const response = await fetch(rssUrl);
       if (!response.ok) {
-        throw new Error("Kunde inte hämta RSS-flödet.");
+        throw new Error('Kunde inte hämta RSS-flödet via rss2json.');
       }
 
       const data = await response.json();
       const items = data.items || [];
 
-      // Element där vi ska stoppa in listan
       const eventListElem = document.getElementById('eventList');
-      // Rensa eventuellt gamla data
+      // Rensa listan före varje uppdatering
       eventListElem.innerHTML = '';
 
-      // Visa max 6 events
+      // Visa max 6 event
       const maxEvents = 6;
       const limitedItems = items.slice(0, maxEvents);
 
       limitedItems.forEach(item => {
-        let titleRaw = (item.title || '').trim();
-        let descRaw = (item.description || '').trim();
+        // Rå titel: "05 feb - 08 feb, Folk och Kultur 2025" etc
+        let rawTitle = (item.title || '').trim();
+        // Plats (ex "Munktellstaden")
+        let location = (item.description || '').trim();
 
-        // 1) Hitta datum i titeln
-        const formattedDate = formatDateRange(titleRaw);
-        // 2) Ta bort datum ur titeln
-        const cleanedTitle = removeDateFromTitle(titleRaw);
-        // 3) Avkoda HTML
+        // 1) Hämta datum
+        const formattedDate = formatDateRange(rawTitle);
+        // 2) Rensa bort datum ur titeln
+        const cleanedTitle = removeDateFromTitle(rawTitle);
         const finalTitle = decodeHtmlEntities(cleanedTitle);
 
-        // 4) Försök extrahera plats
-        const location = extractLocation(descRaw);
-
-        // 5) Hämta bild från enclosure
-        // rss2json kan placera den i .enclosure.link eller .enclosure.url
+        // 3) Enclosure-bild
         let imageUrl = '';
-        if (item.enclosure) {
-          // Kolla om det heter .link eller .url
-          if (item.enclosure.link) {
-            imageUrl = item.enclosure.link;
-          } else if (item.enclosure.url) {
-            imageUrl = item.enclosure.url;
-          }
+        if (item.enclosure && item.enclosure.url) {
+          imageUrl = item.enclosure.url;
         }
-        // Fallback om ingen bild hittas
         if (!imageUrl) {
           imageUrl = 'https://via.placeholder.com/80?text=No+Image';
         }
 
-        // Bygg upp DOM-element
+        // Skapa rad
         const eventItem = document.createElement('div');
         eventItem.classList.add('event-item');
 
+        // Bild
         const imgEl = document.createElement('img');
         imgEl.classList.add('event-image');
         imgEl.src = imageUrl;
-        imgEl.alt = "Event image";
+        imgEl.alt = 'Event image';
 
+        // Textcontainer
         const infoDiv = document.createElement('div');
         infoDiv.classList.add('event-info');
 
+        // Datum+Titel på en rad
+        const dateTitleLine = document.createElement('div');
+        dateTitleLine.classList.add('date-title-line');
+
         // Datum
-        const dateDiv = document.createElement('div');
-        dateDiv.classList.add('event-date');
-        dateDiv.textContent = formattedDate;
+        if (formattedDate) {
+          const dateSpan = document.createElement('span');
+          dateSpan.classList.add('event-date');
+          dateSpan.textContent = formattedDate;
+          dateTitleLine.appendChild(dateSpan);
+        }
 
         // Titel
-        const titleDiv = document.createElement('div');
-        titleDiv.classList.add('event-title');
-        titleDiv.textContent = finalTitle;
+        const titleSpan = document.createElement('span');
+        titleSpan.classList.add('event-title');
+        titleSpan.textContent = finalTitle;
+        dateTitleLine.appendChild(titleSpan);
 
-        // Plats
+        infoDiv.appendChild(dateTitleLine);
+
+        // Plats på egen rad
         if (location) {
           const locationDiv = document.createElement('div');
           locationDiv.classList.add('event-location');
-          locationDiv.textContent = location;
+          locationDiv.textContent = location; 
           infoDiv.appendChild(locationDiv);
-          // Tips: Du kanske vill visa plats *före* eller *efter* titel, smaksak.
         }
 
-        // Lägg in date + title i infoDiv
-        // (Du kan välja ordningsföljd själv!)
-        if (formattedDate) {
-          infoDiv.appendChild(dateDiv);
-        }
-        infoDiv.appendChild(titleDiv);
-
+        // Lägg allt i DOM
         eventItem.appendChild(imgEl);
         eventItem.appendChild(infoDiv);
-
-        // Lägg in i #eventList
         eventListElem.appendChild(eventItem);
       });
 
     } catch (error) {
       console.error(error);
-      const eventListElem = document.getElementById('eventList');
-      eventListElem.innerHTML = `<p>Fel uppstod: ${error.message}</p>`;
+      document.getElementById('eventList').innerHTML = 
+        '<p>Kunde inte ladda evenemang just nu.</p>';
     }
   }
 
-  // Kör direkt när sidan laddas
+  // Hämta och visa listan direkt
   fetchAndDisplayEvents();
-
-  // Upprepa var 5:e minut
+  // Uppdatera var 5:e minut
   setInterval(fetchAndDisplayEvents, 300000);
 </script>
 </body>
