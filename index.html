@@ -26,7 +26,7 @@
             justify-content: center;
         }
         .event-text {
-            font-size: 36px;
+            font-size: var(--font-size, 36px); /* Använder beräknad storlek */
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -52,13 +52,13 @@ const monthMap = {
     "sep": "09", "okt": "10", "nov": "11", "dec": "12"
 };
 
-// Bestäm optimal textstorlek baserat på skärmdimensioner
+// Optimal textstorlek baserad på faktisk textlängd
 function calculateOptimalFontSize() {
     const testElement = document.createElement('div');
     testElement.className = 'event-text';
     testElement.style.position = 'absolute';
     testElement.style.visibility = 'hidden';
-    testElement.textContent = 'W'.repeat(MAX_LENGTH); // Testa med bredaste tecken
+    testElement.textContent = 'W'.repeat(MAX_LENGTH);
     
     document.body.appendChild(testElement);
     
@@ -72,24 +72,26 @@ function calculateOptimalFontSize() {
     return fontSize;
 }
 
-// Tillämpa beräknad textstorlek
+// Tillämpa font-storlek
 document.documentElement.style.setProperty('--font-size', `${calculateOptimalFontSize()}px`);
 
+// Förbättrad datumhantering
 function formatDate(title) {
     const dateMatch = title.match(/(\d{1,2})\s*([a-zåäö]+)\s*([-–]\s*(\d{1,2})\s*([a-zåäö]+))?/i);
     if (!dateMatch) return '';
     
     const startDay = dateMatch[1].padStart(2, '0');
-    const startMonth = monthMap[dateMatch[2].toLowerCase()];
+    const startMonth = monthMap[dateMatch[2].toLowerCase()] || '00';
     
     if (dateMatch[4] && dateMatch[5]) {
         const endDay = dateMatch[4].padStart(2, '0');
-        const endMonth = monthMap[dateMatch[5].toLowerCase()];
+        const endMonth = monthMap[dateMatch[5].toLowerCase()] || '00';
         return `${startDay}/${startMonth}–${endDay}/${endMonth}`;
     }
     return `${startDay}/${startMonth}`;
 }
 
+// Stabil datahämtning
 async function fetchData() {
     try {
         const response = await fetch(RSS_URL);
@@ -100,19 +102,20 @@ async function fetchData() {
         const xmlDoc = parser.parseFromString(data.contents, "text/xml");
         const items = xmlDoc.querySelectorAll('item');
         
-        events = [];
+        const newEvents = [];
         items.forEach(item => {
-            let title = item.querySelector('title')?.textContent?.trim() || '';
+            const title = item.querySelector('title')?.textContent?.trim() || '';
             const date = formatDate(title);
-            title = title.replace(/^(\d{1,2}\s*[a-zåäö]+\s*([-–]\s*\d{1,2}\s*[a-zåäö]+)?)/i, '').trim();
+            const cleanTitle = title.replace(/^(\d{1,2}\s*[a-zåäö]+\s*([-–]\s*\d{1,2}\s*[a-zåäö]+)?)/i, '').trim();
             
-            if (date) {
-                const fullText = `${date} ${title}`.substring(0, MAX_LENGTH);
-                events.push(fullText);
+            if (date && cleanTitle) {
+                const displayText = `${date} ${cleanTitle}`.substring(0, MAX_LENGTH).trim();
+                newEvents.push(displayText);
             }
         });
-        
-        if (events.length > 0) {
+
+        if (newEvents.length > 0) {
+            events = newEvents;
             currentEventIndex = 0;
             updateDisplay();
         }
@@ -136,7 +139,7 @@ function showWelcomeMessage() {
     document.getElementById('eventText').textContent = 'Välkommen till Eskilstuna';
 }
 
-// Initial uppdatering och regelbunden uppdatering
+// Initialisering
 fetchData();
 setInterval(fetchData, 300000); // Uppdatera var 5:e minut
 setInterval(updateDisplay, 10000); // Byt text var 10:e sekund
