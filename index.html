@@ -39,20 +39,20 @@ const MAX_LENGTH = 31;
 let events = [];
 let currentEventIndex = 0;
 const monthMap = {
-    "jan": "01", "feb": "02", "mar": "03", "apr": "04",
-    "maj": "05", "jun": "06", "jul": "07", "aug": "08",
-    "sep": "09", "okt": "10", "nov": "11", "dec": "12"
+    "jan": "1", "feb": "2", "mar": "3", "apr": "4",
+    "maj": "5", "jun": "6", "jul": "7", "aug": "8",
+    "sep": "9", "okt": "10", "nov": "11", "dec": "12"
 };
 
 function formatDate(title) {
     const dateMatch = title.match(/(\d{1,2})\s*([a-zåäö]+)\s*([-–]\s*(\d{1,2})\s*([a-zåäö]+))?/i);
     if (!dateMatch) return '';
     
-    const startDay = dateMatch[1].padStart(2, '0');
+    const startDay = dateMatch[1]; // Ingen nolla framför
     const startMonth = monthMap[dateMatch[2].toLowerCase()];
     
     if (dateMatch[4] && dateMatch[5]) {
-        const endDay = dateMatch[4].padStart(2, '0');
+        const endDay = dateMatch[4]; // Ingen nolla framför
         const endMonth = monthMap[dateMatch[5].toLowerCase()];
         return `${startDay}/${startMonth}–${endDay}/${endMonth}`;
     }
@@ -70,7 +70,8 @@ async function fetchData() {
         data.items.forEach(item => {
             let title = item.title?.trim() || '';
             const date = formatDate(title);
-            title = title.replace(/^(\d{1,2}\s*[a-zåäö]+\s*([-–]\s*\d{1,2}\s*[a-zåäö]+)?)/i, '').trim();
+            // Tar bort datumdelen och eventuella efterföljande specialtecken
+            title = title.replace(/^(\d{1,2}\s*[a-zåäö]+(\s*[-–]\s*\d{1,2}\s*[a-zåäö]+)?)(\s*[,\-–:]?\s*)?/i, '').trim();
             
             if (date) {
                 const fullText = `${date} ${title}`.substring(0, MAX_LENGTH);
@@ -104,8 +105,8 @@ function showWelcomeMessage() {
 
 // Initial uppdatering och regelbunden uppdatering
 fetchData();
-setInterval(fetchData, 300000); // Uppdatera var 5:e minut
-setInterval(updateDisplay, 10000); // Byt text var 10:e sekund
+setInterval(fetchData, 300000);
+setInterval(updateDisplay, 10000);
 </script>
 </body>
 </html>
