@@ -34,7 +34,7 @@
     <div id="eventText">Välkommen till Eskilstuna</div>
 
 <script>
-const RSS_URL = 'https://api.allorigins.win/get?url=' + encodeURIComponent('https://visiteskilstuna.se/rest-api/rssService/getRssFeed?portletId=12.5b899160171ac5273c72ad9f&pageId=2.369be3c31580a19562d1977e');
+const RSS_URL = 'https://api.rss2json.com/v1/api.json?rss_url=' + encodeURIComponent('https://visiteskilstuna.se/rest-api/rssService/getRssFeed?portletId=12.5b899160171ac5273c72ad9f&pageId=2.369be3c31580a19562d1977e');
 const MAX_LENGTH = 31;
 let events = [];
 let currentEventIndex = 0;
@@ -65,13 +65,10 @@ async function fetchData() {
         if (!response.ok) throw new Error('Kunde inte hämta data');
         
         const data = await response.json();
-        const parser = new DOMParser();
-        const xmlDoc = parser.parseFromString(data.contents, "text/xml");
-        const items = xmlDoc.querySelectorAll('item');
-        
         events = [];
-        items.forEach(item => {
-            let title = item.querySelector('title')?.textContent?.trim() || '';
+        
+        data.items.forEach(item => {
+            let title = item.title?.trim() || '';
             const date = formatDate(title);
             title = title.replace(/^(\d{1,2}\s*[a-zåäö]+\s*([-–]\s*\d{1,2}\s*[a-zåäö]+)?)/i, '').trim();
             
