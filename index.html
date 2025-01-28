@@ -3,83 +3,87 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>RSS Läsare (Vänsterställd, centrerad vertikalt)</title>
+  <title>Eskilstuna Evenemang - Lista</title>
   <style>
-    /* 
-      BODY fyller hela webbläsarfönstret i höjdled (100vh).
-      Bakgrunden är svart.
-      Texten placeras (med flex) längs vänsterkanten (justify-content: flex-start),
-      men är centrerad vertikalt (align-items: center).
-    */
     body {
+      margin: 0;
+      padding: 0;
       background-color: black;
       color: white;
       font-family: Arial, sans-serif;
-      margin: 0;
-      padding: 0;
+    }
 
+    /* En container för hela listan */
+    #eventList {
       display: flex;
-      justify-content: flex-start; /* Vänsterställd horisontellt */
-      align-items: center;         /* Vertikalt centrerad */
-      height: 100vh;               /* Fyll hela fönstrets höjd */
+      flex-direction: column; /* Lodrät lista */
+      gap: 10px;             /* Avstånd mellan varje event-item */
+      max-width: 800px;      /* Anpassa efter hur bred du vill att listan ska vara */
+      margin: 0 auto;        /* Centrera listan i webbläsarfönstret */
+      padding: 20px;
     }
 
-    /*
-      #rssFeed är en flexibel behållare för texten,
-      ligger mot vänsterkanten tack vare body.
-      padding-left: 10px ger lite luft i vänsterkanten.
-    */
-    #rssFeed {
-      max-width: 100%;   /* Så den inte överskrider fönstrets bredd */
-      padding-left: 10px;
-      box-sizing: border-box;
-      line-height: 1.2;
-      overflow: hidden;  /* Dölj ev. extra text om rullning sker */
-    }
-
-    /* Själva textytan */
-    #eventTitle {
-      font-size: 30px;
-      margin: 0;
-      white-space: nowrap;
+    /* Varje event presenteras i en "rad" */
+    .event-item {
+      display: flex;
+      flex-direction: row;   /* Bild till vänster, text till höger */
+      background-color: #333;
+      border-radius: 5px;
       overflow: hidden;
-      position: relative; 
-      text-align: left;
-      line-height: 1.2;  /* Du kan byta till 64px om du vill */
+      align-items: center;
+      min-height: 80px; /* så vi har utrymme för bilden */
     }
 
-    /* Rullande text (marquee) när för långt (> 40 tecken) */
-    .scroll-text {
-      position: absolute;
-      white-space: nowrap;
-      padding-left: 100%;
-      animation: marquee 15s linear infinite;
+    /* Bilden */
+    .event-image {
+      width: 80px;
+      height: 80px;
+      object-fit: cover;  /* Beskär bilden om den är för stor / annan ratio */
+      flex-shrink: 0;     /* Förhindra att bilden trycks ihop */
+      background-color: #555; /* fallback om ingen bild hittas */
     }
 
-    @keyframes marquee {
-      0%   { transform: translateX(0); }
-      100% { transform: translateX(-100%); }
+    /* Text-området bredvid bilden */
+    .event-info {
+      display: flex;
+      flex-direction: column;
+      padding: 8px 10px;
+      justify-content: center;
+      flex-grow: 1; /* Gör så textytan kan bre ut sig */
+    }
+
+    .event-date {
+      font-weight: bold;
+      margin-bottom: 4px;
+    }
+
+    .event-title {
+      font-size: 1.1rem;
+      margin: 0;
+      line-height: 1.4;
+    }
+
+    .event-location {
+      color: #ccc;
+      font-size: 0.95rem;
+      margin-top: 4px;
     }
   </style>
 </head>
 <body>
 
-  <div id="rssFeed">
-    <div id="eventTitle">VÄLKOMMEN TILL ESKILSTUNA</div>
+  <div id="eventList">
+    <!-- Här stoppar vi in event-rader dynamiskt via JavaScript -->
   </div>
 
 <script>
-  // RSS via rss2json
+  // URL till rss2json (hämta ditt RSS-flöde i JSON-format)
   const rssUrl = 'https://api.rss2json.com/v1/api.json?rss_url=' + 
     encodeURIComponent(
       'https://visiteskilstuna.se/rest-api/rssService/getRssFeed?portletId=12.5b899160171ac5273c72ad9f&pageId=2.369be3c31580a19562d1977e'
     );
 
-  let events = [];
-  let currentEventIndex = 0;
-  let eventInterval;
-
-  // Svenska månader (inkl. åäö, kort+långa)
+  // Svenska månader för datumformat
   const swedishMonths = {
     "jan": 1, "januari": 1,
     "feb": 2, "februari": 2,
@@ -97,9 +101,11 @@
 
   /**
    * formatDateRange:
-   * T.ex. "5 feb - 8 feb" => "5/2 - 8/2"
+   * "5 feb - 8 feb" => "5/2 - 8/2"
+   * "5 feb" => "5/2"
    */
   function formatDateRange(title) {
+    // Fångar "xx mån" eller "xx mån - xx mån"
     const datePattern = /^(\d{1,2})\s*([a-zA-ZåäöÅÄÖ]+)(?:\s*-\s*(\d{1,2})\s*([a-zA-ZåäöÅÄÖ]+))?/i;
     const match = title.match(datePattern);
     if (match) {
@@ -124,8 +130,7 @@
 
   /**
    * removeDateFromTitle:
-   * Tar bort datum + ev. skiljetecken direkt efter.  
-   * T.ex. "5 feb - 8 feb, Folk och Kultur" -> "Folk och Kultur"
+   * T.ex. "5 feb - 8 feb, Folk och Kultur" => "Folk och Kultur"
    */
   function removeDateFromTitle(title) {
     return title.replace(
@@ -134,82 +139,135 @@
     ).trim();
   }
 
-  // Avkodar HTML-entities, ex &amp; -> &
+  // Avkodar t.ex. "&amp;" till "&"
   function decodeHtmlEntities(text) {
     const textarea = document.createElement('textarea');
     textarea.innerHTML = text;
     return textarea.value;
   }
 
-  // Hämta RSS
-  async function fetchRSS() {
+  /**
+   * Försök att plocka "Plats" ur <description>.
+   * Ex: <description>...Plats: Eskilstuna stadsmuseum<br>...
+   * Du kan behöva anpassa detta beroende på hur texten är uppbyggd!
+   */
+  function extractLocation(description) {
+    if (!description) return '';
+    // T.ex. letar efter "Plats: " + resten fram till <br> eller liknande
+    const match = description.match(/Plats:\s*(.*?)(<br|<\/p|$)/i);
+    if (match) {
+      return match[1].trim();
+    }
+    return '';
+  }
+
+  // Hämta data och bygg listan
+  async function fetchAndDisplayEvents() {
     try {
       const response = await fetch(rssUrl);
-      if (!response.ok) throw new Error("Kunde inte hämta RSS-flödet.");
+      if (!response.ok) {
+        throw new Error("Kunde inte hämta RSS-flödet.");
+      }
 
       const data = await response.json();
-      const items = data.items;
+      const items = data.items || [];
 
-      events = [];
+      // Element där vi ska stoppa in listan
+      const eventListElem = document.getElementById('eventList');
+      // Rensa eventuellt gamla data
+      eventListElem.innerHTML = '';
 
-      for (let i = 0; i < items.length; i++) {
-        let title = (items[i].title || '').trim();
+      // Visa max 6 events
+      const maxEvents = 6;
+      const limitedItems = items.slice(0, maxEvents);
 
-        // Extrahera datum
-        const formattedDate = formatDateRange(title);
+      limitedItems.forEach(item => {
+        let titleRaw = (item.title || '').trim();
+        let descRaw = (item.description || '').trim();
 
-        // Ta bort datumet ur titeln (inkl. ev. kommatecken, etc.)
-        title = removeDateFromTitle(title);
+        // 1) Hitta datum i titeln
+        const formattedDate = formatDateRange(titleRaw);
+        // 2) Ta bort datum ur titeln
+        const cleanedTitle = removeDateFromTitle(titleRaw);
+        // 3) Avkoda HTML
+        const finalTitle = decodeHtmlEntities(cleanedTitle);
 
-        // Avkoda HTML
-        title = decodeHtmlEntities(title);
+        // 4) Försök extrahera plats
+        const location = extractLocation(descRaw);
 
-        // Sätt ihop "datum + titel"
-        const displayTitle = (formattedDate ? formattedDate + ' ' : '') + title;
+        // 5) Hämta bild från enclosure
+        // rss2json kan placera den i .enclosure.link eller .enclosure.url
+        let imageUrl = '';
+        if (item.enclosure) {
+          // Kolla om det heter .link eller .url
+          if (item.enclosure.link) {
+            imageUrl = item.enclosure.link;
+          } else if (item.enclosure.url) {
+            imageUrl = item.enclosure.url;
+          }
+        }
+        // Fallback om ingen bild hittas
+        if (!imageUrl) {
+          imageUrl = 'https://via.placeholder.com/80?text=No+Image';
+        }
 
-        events.push({ title: displayTitle.trim() });
-      }
+        // Bygg upp DOM-element
+        const eventItem = document.createElement('div');
+        eventItem.classList.add('event-item');
 
-      if (!eventInterval) {
-        showNextEvent();
-        // Byt event var 10:e sekund
-        eventInterval = setInterval(showNextEvent, 10000);
-      }
+        const imgEl = document.createElement('img');
+        imgEl.classList.add('event-image');
+        imgEl.src = imageUrl;
+        imgEl.alt = "Event image";
+
+        const infoDiv = document.createElement('div');
+        infoDiv.classList.add('event-info');
+
+        // Datum
+        const dateDiv = document.createElement('div');
+        dateDiv.classList.add('event-date');
+        dateDiv.textContent = formattedDate;
+
+        // Titel
+        const titleDiv = document.createElement('div');
+        titleDiv.classList.add('event-title');
+        titleDiv.textContent = finalTitle;
+
+        // Plats
+        if (location) {
+          const locationDiv = document.createElement('div');
+          locationDiv.classList.add('event-location');
+          locationDiv.textContent = location;
+          infoDiv.appendChild(locationDiv);
+          // Tips: Du kanske vill visa plats *före* eller *efter* titel, smaksak.
+        }
+
+        // Lägg in date + title i infoDiv
+        // (Du kan välja ordningsföljd själv!)
+        if (formattedDate) {
+          infoDiv.appendChild(dateDiv);
+        }
+        infoDiv.appendChild(titleDiv);
+
+        eventItem.appendChild(imgEl);
+        eventItem.appendChild(infoDiv);
+
+        // Lägg in i #eventList
+        eventListElem.appendChild(eventItem);
+      });
+
     } catch (error) {
       console.error(error);
-      resetToWelcomeMessage();
+      const eventListElem = document.getElementById('eventList');
+      eventListElem.innerHTML = `<p>Fel uppstod: ${error.message}</p>`;
     }
   }
 
-  // Visa nästa event
-  function showNextEvent() {
-    const eventTitleElem = document.getElementById("eventTitle");
+  // Kör direkt när sidan laddas
+  fetchAndDisplayEvents();
 
-    if (events.length > 0) {
-      const currentText = events[currentEventIndex].title;
-
-      // Om texten är för lång => marquee
-      if (currentText.length > 40) {
-        eventTitleElem.innerHTML = `<div class="scroll-text">${currentText}</div>`;
-      } else {
-        eventTitleElem.textContent = currentText;
-      }
-
-      currentEventIndex = (currentEventIndex + 1) % events.length;
-    } else {
-      resetToWelcomeMessage();
-    }
-  }
-
-  // Återställ välkomst
-  function resetToWelcomeMessage() {
-    document.getElementById("eventTitle").textContent = 'VÄLKOMMEN TILL ESKILSTUNA';
-  }
-
-  // Init
-  fetchRSS();
   // Upprepa var 5:e minut
-  setInterval(fetchRSS, 300000);
+  setInterval(fetchAndDisplayEvents, 300000);
 </script>
 </body>
 </html>
