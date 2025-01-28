@@ -1,214 +1,217 @@
 <!DOCTYPE html>
 <html lang="sv">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=576, initial-scale=1.0">
-  <title>RSS Läsare (576x64)</title>
-  <style>
-    /* 
-      BODY fyller hela webbläsarens höjd 
-      och centrar #rssFeed i mitten 
-    */
-    body {
-      background-color: black;
-      color: white;
-      font-family: Arial, sans-serif;
-      margin: 0;
-      padding: 0;
-      display: flex;
-      justify-content: center; /* Horisontell centrering */
-      align-items: center;     /* Vertikal centrering */
-      height: 100vh;           /* Fyll hela fönstrets höjd */
-    }
+    <meta charset="UTF-8">
+    <!-- Låser viewport till 576px för en skärm som verkligen är 576x64 -->
+    <meta name="viewport" content="width=576, initial-scale=1.0">
+    <title>RSS Läsare (576x64)</title>
+    <style>
+        /* Hela sidan matchar exakt skärmens mått 576x64 */
+        body {
+            margin: 0;
+            padding: 0;
+            width: 576px;
+            height: 64px;
+            overflow: hidden; /* Hindrar scrollbars */
+            background-color: black;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
 
-    /*
-      #rssFeed är vårt "fönster" på 576x64 px,
-      placerat i mitten av skärmen (tack vare body-styling).
-      Texten inuti är vänsterjusterad.
-    */
-    #rssFeed {
-      width: 576px;
-      height: 64px;
-      box-sizing: border-box;
-      display: flex;
-      justify-content: flex-start; /* Vänsterjustera texten inom denna yta */
-      align-items: center;         /* Vertikalt centrera i 64px-höjden */
-      overflow: hidden;           /* Dölj ev. spill */
-      padding-left: 10px;         /* Lite marginal till vänster */
-    }
+        /* En container för texten, 576x64, med lite vänstermarginal */
+        #rssFeed {
+            width: 576px;
+            height: 64px;
+            box-sizing: border-box;
+            overflow: hidden;
+            display: flex;
+            align-items: center;        /* Vertikal centrering */
+            justify-content: flex-start; /* Vänsterjusterat */
+            padding-left: 10px;
+        }
 
-    /* Själva textfältet */
-    #eventTitle {
-      font-size: 30px;
-      margin: 0;
-      line-height: 64px;      /* Matcha höjden på boxen */
-      white-space: nowrap;
-      overflow: hidden;
-      position: relative;     /* För marquee-positionering */
-      text-align: left;       /* Vänsterjustering */
-    }
+        /* Själva textfältet */
+        #eventTitle {
+            font-size: 30px;
+            margin: 0;
+            line-height: 64px;      /* Matchar höjden */
+            white-space: nowrap;
+            overflow: hidden;
+            position: relative;     /* För att .scroll-text ska kunna positioneras absolut */
+            text-align: left;
+        }
 
-    /* Om texten är för lång, använd en scrolling "marquee"-effekt */
-    .scroll-text {
-      position: absolute;
-      line-height: 64px;
-      /* Starta texten "utanför" till höger och rulla över hela rutan */
-      padding-left: 100%;
-      animation: marquee 15s linear infinite; 
-      white-space: nowrap;
-    }
+        /* Marquee-effekt för långa texter */
+        .scroll-text {
+            position: absolute;
+            line-height: 64px;
+            /* Starta texten precis utanför högerkanten (100%) och rulla över */
+            padding-left: 100%;
+            animation: marquee 15s linear infinite; 
+            /* Du kan justera 15s om du vill rulla snabbare/långsammare */
+            white-space: nowrap;
+        }
 
-    @keyframes marquee {
-      0%   { transform: translateX(0); }
-      100% { transform: translateX(-100%); }
-    }
-  </style>
+        @keyframes marquee {
+            0%   { transform: translateX(0); }
+            100% { transform: translateX(-100%); }
+        }
+    </style>
 </head>
 <body>
-  <div id="rssFeed">
-    <div id="eventTitle">VÄLKOMMEN TILL ESKILSTUNA</div>
-  </div>
+    <div id="rssFeed">
+        <div id="eventTitle">VÄLKOMMEN TILL ESKILSTUNA</div>
+    </div>
 
-  <script>
-    // RSS via rss2json
+<script>
+    // URL för rss2json
     const rssUrl = 'https://api.rss2json.com/v1/api.json?rss_url=' + 
-      encodeURIComponent(
-        'https://visiteskilstuna.se/rest-api/rssService/getRssFeed?portletId=12.5b899160171ac5273c72ad9f&pageId=2.369be3c31580a19562d1977e'
-      );
-
+        encodeURIComponent('https://visiteskilstuna.se/rest-api/rssService/getRssFeed?portletId=12.5b899160171ac5273c72ad9f&pageId=2.369be3c31580a19562d1977e');
+    
     let events = [];
     let currentEventIndex = 0;
     let eventInterval;
 
-    // Mapp för svenska månader (korta och långa)
+    // Mapp för svenska månader (både korta och långa namn)
     const swedishMonths = {
-      "jan": 1, "januari": 1,
-      "feb": 2, "februari": 2,
-      "mar": 3, "mars": 3,
-      "apr": 4, "april": 4,
-      "maj": 5,
-      "jun": 6, "juni": 6,
-      "jul": 7, "juli": 7,
-      "aug": 8, "augusti": 8,
-      "sep": 9, "sept": 9, "september": 9,
-      "okt": 10, "oktober": 10,
-      "nov": 11, "november": 11,
-      "dec": 12, "december": 12
+        "jan": 1, "januari": 1,
+        "feb": 2, "februari": 2,
+        "mar": 3, "mars": 3,
+        "apr": 4, "april": 4,
+        "maj": 5,
+        "jun": 6, "juni": 6,
+        "jul": 7, "juli": 7,
+        "aug": 8, "augusti": 8,
+        "sep": 9, "sept": 9, "september": 9,
+        "okt": 10, "oktober": 10,
+        "nov": 11, "november": 11,
+        "dec": 12, "december": 12
     };
 
     /**
-     * Hittar datumintervall i början av titeln.
-     * Ex "21 jan - 23 jan" -> "21/1 - 23/1".
-     * Återgår med tom sträng om inget datum hittas.
+     * formatDateRange
+     * Försöker hitta datumformat i början av titeln:
+     * Ex: "14 maj - 16 maj" -> "14/5 - 16/5"
+     * eller "14 maj" -> "14/5"
+     * Returnerar tom sträng om ingen match.
      */
     function formatDateRange(title) {
-      // Fångar dag + månad(åäö?), ev. andra dag + månad
-      const datePattern = /^(\d{1,2})\s*([a-zA-ZåäöÅÄÖ]+)(?:\s*-\s*(\d{1,2})\s*([a-zA-ZåäöÅÄÖ]+))?/i;
-      const match = title.match(datePattern);
-      if (match) {
-        const startDay = parseInt(match[1], 10);
-        const startMonthStr = match[2].toLowerCase();
-        const startMonthNum = swedishMonths[startMonthStr] || null;
-        if (!startMonthNum) return ''; // Månaden kändes inte igen
+        // Regex:
+        //  - (\d{1,2}) fångar dag (1-2 siffror)
+        //  - ([a-zA-ZåäöÅÄÖ]+) fångar månad (svenska, ex "maj", "juni", "oktober", etc.)
+        //  - (?: ... )? fångar ev. andra datumet
+        const datePattern = /^(\d{1,2})\s*([a-zA-ZåäöÅÄÖ]+)(?:\s*-\s*(\d{1,2})\s*([a-zA-ZåäöÅÄÖ]+))?/i;
+        const match = title.match(datePattern);
+        if (match) {
+            const startDay = parseInt(match[1], 10);
+            const startMonthStr = match[2].toLowerCase(); 
+            const startMonth = swedishMonths[startMonthStr] || null;
 
-        const endDayStr = match[3];
-        const endMonthStr = match[4] ? match[4].toLowerCase() : null;
+            if (!startMonth) return ''; // Om månad inte hittas i tabellen, avbryt
 
-        if (endDayStr && endMonthStr && swedishMonths[endMonthStr]) {
-          const endDay = parseInt(endDayStr, 10);
-          const endMonthNum = swedishMonths[endMonthStr];
-          return `${startDay}/${startMonthNum} - ${endDay}/${endMonthNum}`;
-        } else {
-          return `${startDay}/${startMonthNum}`;
+            // Kollar om vi har ett andra intervall
+            const endDayStr = match[3];
+            const endMonthStr = match[4] ? match[4].toLowerCase() : null;
+
+            if (endDayStr && endMonthStr && swedishMonths[endMonthStr]) {
+                const endDay = parseInt(endDayStr, 10);
+                const endMonth = swedishMonths[endMonthStr];
+                return `${startDay}/${startMonth} - ${endDay}/${endMonth}`; 
+            } else {
+                return `${startDay}/${startMonth}`;
+            }
         }
-      }
-      return '';
+        return '';
     }
 
-    // Avkodar exempelvis &amp; till &
+    // Avkodar HTML-tecken (ex. &amp; -> &)
     function decodeHtmlEntities(text) {
-      const textarea = document.createElement('textarea');
-      textarea.innerHTML = text;
-      return textarea.value;
+        const textarea = document.createElement('textarea');
+        textarea.innerHTML = text;
+        return textarea.value;
     }
 
-    // Hämta RSS
     async function fetchRSS() {
-      try {
-        const response = await fetch(rssUrl);
-        if (!response.ok) throw new Error("Kunde inte hämta RSS-flödet.");
+        try {
+            const response = await fetch(rssUrl);
+            if (!response.ok) throw new Error("Kunde inte hämta RSS-flödet.");
 
-        const data = await response.json();
-        const items = data.items;
+            const data = await response.json();
+            const items = data.items;
 
-        events = [];
+            events = [];
 
-        for (let i = 0; i < items.length; i++) {
-          let title = items[i].title || '';
-          title = title.trim();
+            // Bygg upp events-lista
+            for (let i = 0; i < items.length; i++) {
+                let title = items[i].title || '';
+                title = title.trim();
 
-          // Hitta/formattera datum
-          const formattedDate = formatDateRange(title);
+                // Fånga upp datum i titeln
+                const formattedDate = formatDateRange(title);
 
-          // Ta bort datumdelen ur texten
-          title = title.replace(
-            /^(\d{1,2}\s*[a-zA-ZåäöÅÄÖ]+(?:\s*-\s*\d{1,2}\s*[a-zA-ZåäöÅÄÖ]+)?)([\s,:\-–]*)?/i, 
-            ''
-          ).trim();
+                // Ta bort själva datumet ur början av titeln
+                // Samma regex (i stort sett) fast vi använder "replace"
+                // för att rensa bort den delen ur texten
+                title = title.replace(
+                    /^(\d{1,2}\s*[a-zA-ZåäöÅÄÖ]+(?:\s*-\s*\d{1,2}\s*[a-zA-ZåäöÅÄÖ]+)?)/i, 
+                    ''
+                ).trim();
 
-          // Avkoda HTML
-          title = decodeHtmlEntities(title);
+                // Om det finns tecken som t.ex. &amp; etc., avkoda dem
+                title = decodeHtmlEntities(title);
 
-          // Slutlig text => "datum eventTitel"
-          const displayTitle = (formattedDate ? formattedDate + ' ' : '') + title;
+                // Bygg "Slutlig" text (datum + event-titel)
+                // Om formattedDate saknas blir det bara event-titeln
+                const displayTitle = (formattedDate ? formattedDate + ' ' : '') + title;
 
-          events.push({ title: displayTitle.trim() });
+                // Lägg in i array
+                events.push({ title: displayTitle.trim() });
+            }
+
+            // Om vi inte redan har en timer igång för att visa event, starta den
+            if (!eventInterval) {
+                showNextEvent();
+                // Byt event var 10:e sekund
+                eventInterval = setInterval(showNextEvent, 10000);
+            }
+
+        } catch (error) {
+            console.error(error);
+            resetToWelcomeMessage();
         }
-
-        // Om ingen intervall redan pågår: starta upp
-        if (!eventInterval) {
-          showNextEvent();
-          // Byt event var 10:e sekund
-          eventInterval = setInterval(showNextEvent, 10000);
-        }
-
-      } catch (error) {
-        console.error(error);
-        resetToWelcomeMessage();
-      }
     }
 
-    // Visar nästa event
+    // Visar nästa event i listan
     function showNextEvent() {
-      const eventTitleElem = document.getElementById("eventTitle");
+        const eventTitleElem = document.getElementById("eventTitle");
 
-      if (events.length > 0) {
-        const currentText = events[currentEventIndex].title;
+        if (events.length > 0) {
+            const currentText = events[currentEventIndex].title;
 
-        // Om texten är längre än 40 tecken -> scrolla
-        if (currentText.length > 40) {
-          eventTitleElem.innerHTML = `<div class="scroll-text">${currentText}</div>`;
+            // Om texten är väldigt lång -> rulla
+            if (currentText.length > 40) {
+                eventTitleElem.innerHTML = `<div class="scroll-text">${currentText}</div>`;
+            } else {
+                eventTitleElem.textContent = currentText;
+            }
+
+            currentEventIndex = (currentEventIndex + 1) % events.length;
         } else {
-          eventTitleElem.textContent = currentText;
+            resetToWelcomeMessage();
         }
-
-        // Nästa index
-        currentEventIndex = (currentEventIndex + 1) % events.length;
-      } else {
-        resetToWelcomeMessage();
-      }
     }
 
     // Återställ välkomstmeddelande
     function resetToWelcomeMessage() {
-      const eventTitleElem = document.getElementById("eventTitle");
-      eventTitleElem.textContent = 'VÄLKOMMEN TILL ESKILSTUNA';
+        const eventTitleElem = document.getElementById("eventTitle");
+        eventTitleElem.textContent = 'VÄLKOMMEN TILL ESKILSTUNA';
     }
 
-    // Hämta data direkt
+    // Hämta RSS direkt vid sidstart
     fetchRSS();
-    // Hämta om var 5:e minut
+
+    // Hämta nya data var 5:e minut
     setInterval(fetchRSS, 300000);
-  </script>
+</script>
 </body>
 </html>
