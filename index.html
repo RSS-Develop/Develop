@@ -14,19 +14,18 @@
             width: 576px;
             height: 64px;
             overflow: hidden;
-            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         #eventText {
-            font-size: 36px;
             white-space: nowrap;
-            position: absolute;
-            left: 50%;
-            top: 50%;
-            transform: translate(-50%, -50%);
             max-width: 100%;
             margin: 0;
-            padding: 0;
-            line-height: 1;
+            padding: 0 10px;
+            line-height: 1.2;
+            text-align: center;
+            transition: font-size 0.3s ease;
         }
     </style>
 </head>
@@ -35,7 +34,8 @@
 
 <script>
 const RSS_URL = 'https://api.rss2json.com/v1/api.json?rss_url=' + encodeURIComponent('https://visiteskilstuna.se/rest-api/rssService/getRssFeed?portletId=12.5b899160171ac5273c72ad9f&pageId=2.369be3c31580a19562d1977e');
-const MAX_LENGTH = 31;
+const BASE_FONT_SIZE = 36; // Storlek för 31 tecken
+const CONTAINER_WIDTH = 576;
 let events = [];
 let currentEventIndex = 0;
 const monthMap = {
@@ -44,15 +44,27 @@ const monthMap = {
     "sep": "9", "okt": "10", "nov": "11", "dec": "12"
 };
 
+// Dynamisk textstorleksberäkning
+function calculateFontSize(text) {
+    const baseLength = 31; // Baslängd för BASE_FONT_SIZE
+    const minFontSize = 24; // Minsta tillåtna textstorlek
+    
+    // Beräkna förhållande mellan aktuell textlängd och baslängd
+    const lengthRatio = Math.min(text.length / baseLength, 2); // Begränsa max till dubbla längden
+    const calculatedSize = BASE_FONT_SIZE / lengthRatio;
+    
+    return Math.max(calculatedSize, minFontSize);
+}
+
 function formatDate(title) {
     const dateMatch = title.match(/(\d{1,2})\s*([a-zåäö]+)\s*([-–]\s*(\d{1,2})\s*([a-zåäö]+))?/i);
     if (!dateMatch) return '';
     
-    const startDay = dateMatch[1]; // Ingen nolla framför
+    const startDay = dateMatch[1];
     const startMonth = monthMap[dateMatch[2].toLowerCase()];
     
     if (dateMatch[4] && dateMatch[5]) {
-        const endDay = dateMatch[4]; // Ingen nolla framför
+        const endDay = dateMatch[4];
         const endMonth = monthMap[dateMatch[5].toLowerCase()];
         return `${startDay}/${startMonth}–${endDay}/${endMonth}`;
     }
@@ -70,11 +82,10 @@ async function fetchData() {
         data.items.forEach(item => {
             let title = item.title?.trim() || '';
             const date = formatDate(title);
-            // Tar bort datumdelen och eventuella efterföljande specialtecken
             title = title.replace(/^(\d{1,2}\s*[a-zåäö]+(\s*[-–]\s*\d{1,2}\s*[a-zåäö]+)?)(\s*[,\-–:]?\s*)?/i, '').trim();
             
             if (date) {
-                const fullText = `${date} ${title}`.substring(0, MAX_LENGTH);
+                const fullText = `${date} ${title}`;
                 events.push(fullText);
             }
         });
@@ -92,7 +103,9 @@ async function fetchData() {
 function updateDisplay() {
     const displayElement = document.getElementById('eventText');
     if (events.length > 0) {
-        displayElement.textContent = events[currentEventIndex];
+        const currentText = events[currentEventIndex];
+        displayElement.textContent = currentText;
+        displayElement.style.fontSize = `${calculateFontSize(currentText)}px`;
         currentEventIndex = (currentEventIndex + 1) % events.length;
     } else {
         showWelcomeMessage();
@@ -100,7 +113,9 @@ function updateDisplay() {
 }
 
 function showWelcomeMessage() {
-    document.getElementById('eventText').textContent = 'Välkommen till Eskilstuna';
+    const displayElement = document.getElementById('eventText');
+    displayElement.textContent = 'Välkommen till Eskilstuna';
+    displayElement.style.fontSize = `${BASE_FONT_SIZE}px`;
 }
 
 // Initial uppdatering och regelbunden uppdatering
